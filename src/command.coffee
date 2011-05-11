@@ -68,7 +68,6 @@ exports.run = ->
     brunch.new options, ->
       options = _.extend(options, exports.loadConfigFile(configPath) )
       options = exports.loadOptionsFromArguments opts, options
-      brunch.build options
 
   else if command is 'watch' or command is 'build'
     options = _.extend(options, exports.loadConfigFile(configPath) )
@@ -87,7 +86,7 @@ exports.loadDefaultArguments = ->
   # buildPath is created in loadOptionsFromArguments
   options =
     templateExtension: 'eco'
-    projectTemplate: 'express'
+    projectTemplate: 'base'
     expressPort: '8080'
     brunchPath: 'brunch'
     dependencies: []

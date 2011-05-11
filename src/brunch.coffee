@@ -97,7 +97,7 @@ exports.collectDependencies = (sourcePath, orderedDependencies) ->
 
 # creates a stitch package for app directory and include vendor as dependencies
 exports.initializePackage = (brunchPath) ->
-  vendorPath = path.join brunchPath, 'src/vendor'
+  vendorPath = path.join brunchPath, 'src/vendor/js'
   dependencyPaths = exports.collectDependencies(vendorPath, exports.options.dependencies)
 
   package = stitch.createPackage(
@@ -163,6 +163,7 @@ exports.spawnStylus = ->
     '--out',
     path.join(exports.options.buildPath, 'web/css'),
     path.join(exports.options.brunchPath, 'src/app/styles/main.styl')
+    path.join(exports.options.brunchPath, 'src/vendor/styles/')
   ])
   executeStylus.stdout.on 'data', (data) ->
     helpers.log 'stylus: ' + data
