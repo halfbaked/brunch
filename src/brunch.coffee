@@ -19,6 +19,7 @@ expressProcess = {}
 
 # stitch package
 package = {}
+fakeServerPackage = {}
 
 # are used as workaround to not call compile to often
 # TODO in future this issues should be handled by a clean dir/file watcher
@@ -61,6 +62,21 @@ exports.watch  = (options) ->
       expressProcess.stderr.on 'data', (data) ->
         helpers.log colors.lred('express err: ' + data)
 
+   # run node server if server file exists
+  path.exists path.join(exports.options.brunchPath, 'build/fake_server/main.js'), (exists) ->
+    if exists
+      helpers.log "express fake server:  application started on port #{colors.blue(exports.options.expressPort, true)}: http://0.0.0.0:#{exports.options.expressPort}\n"
+      expressProcess = spawn('node', [
+        path.join(exports.options.buildPath, 'fake_server/main.js'),
+        exports.options.expressPort,
+        path.join exports.options.brunchPath, 'build/spa' 
+      ])
+      expressProcess.stderr.on 'data', (data) ->
+        helpers.log colors.lred('express err: ' + data)
+      expressProcess.stdout.on 'data', (data) ->
+        helpers.log colors.blue('test_server:' + data)
+
+
   # let's watch
   helpers.watchDirectory(path: path.join(exports.options.brunchPath, 'src'), callOnAdd: true, (file) ->
     exports.dispatch(file)
@@ -71,16 +87,18 @@ exports.build = (options) ->
   exports.options = options
   exports.createBuildDirectories(exports.options.buildPath)
   exports.initializePackage(exports.options.brunchPath)
-
+  
   exports.compilePackage()
   exports.spawnStylus()
+  exports.initializeFakeServerPackage(exports.options.brunchPath)
+  exports.buildFakeServer()
 
 exports.stop = ->
   expressProcess.kill 'SIGHUP' unless expressProcess is {}
 
 exports.createBuildDirectories = (buildPath) ->
-  fileUtil.mkdirsSync path.join(buildPath, 'web/js'), 0755
-  fileUtil.mkdirsSync path.join(buildPath, 'web/css'), 0755
+  fileUtil.mkdirsSync path.join(buildPath, 'spa/js'), 0755
+  fileUtil.mkdirsSync path.join(buildPath, 'spa/css'), 0755
 
 # generate list of dependencies and preserve order of brunch libaries
 # like defined in options.dependencies
@@ -102,9 +120,16 @@ exports.initializePackage = (brunchPath) ->
 
   package = stitch.createPackage(
     dependencies: dependencyPaths
-    paths: [path.join(brunchPath, 'src/app/')]
+    paths: [path.join(brunchPath, 'src/spa/')]
   )
   package
+
+# create a stitch package of all fakeserver related files
+exports.initializeFakeServerPackage = (brunchPath) ->   
+  fakeServerPackage = stitch.createPackage(
+    paths: [path.join brunchPath, 'src/fake_server']
+  )
+  fakeServerPackage
 
 # dispatcher for file watching which determines which action needs to be done
 # according to the file that was changed/created/removed
@@ -115,7 +140,7 @@ exports.dispatch = (file, options) ->
     timeouts.coffee = setTimeout(func, 100)
 
   # update package dependencies in case a dependency was added or removed
-  vendorPath = path.join(exports.options.brunchPath, 'src/vendor')
+  vendorPath = path.join(exports.options.brunchPath, 'src/vendor/js')
   package.dependencies = exports.collectDependencies vendorPath, exports.options.dependencies if file.match(/src\/vendor\//)
 
   # handle coffee changes
@@ -145,7 +170,7 @@ exports.compilePackage = ->
       helpers.log "brunch:   #{colors.lred('There was a problem during compilation.', true)}\n"
       helpers.log "#{colors.lgray(err, true)}\n"
     else
-      fs.writeFile(path.join(exports.options.buildPath, 'web/js/app.js'), source, (err) ->
+      fs.writeFile(path.join(exports.options.buildPath, 'spa/js/app.js'), source, (err) ->
         if err?
           helpers.log "brunch:   #{colors.lred('Couldn\'t write compiled file.', true)}\n"
           helpers.log "#{colors.lgray(err, true)}\n"
@@ -154,15 +179,30 @@ exports.compilePackage = ->
       )
   )
 
+
+exports.buildFakeServer = ->
+ executeCoffee = spawn('coffee', [
+    '-o'
+    path.join exports.options.buildPath, 'fake_server'
+    '-c'
+    path.join exports.options.brunchPath, 'src/fake_server'
+  ])
+  executeCoffee.stdout.on 'data', (data) ->
+    helpers.log 'stylus: ' + data
+  executeCoffee.stderr.on 'data', (data) ->
+    helpers.log colors.lred('stylus err: ' + data)
+
 # spawn a new stylus process which compiles main.styl
 exports.spawnStylus = ->
 
   path.join(exports.options.brunchPath, 'src')
   executeStylus = spawn('stylus', [
-    '--compress',
-    '--out',
-    path.join(exports.options.buildPath, 'web/css'),
-    path.join(exports.options.brunchPath, 'src/app/styles/main.styl')
+    '-I'
+    path.join(exports.options.brunchPath, 'src/vendor/styles')
+    '--compress'
+    '--out'
+    path.join(exports.options.buildPath, 'spa/css'),
+    path.join(exports.options.brunchPath, 'src/spa/styles/main.styl')
     path.join(exports.options.brunchPath, 'src/vendor/styles/')
   ])
   executeStylus.stdout.on 'data', (data) ->
