@@ -36,11 +36,19 @@ Instead of reinventing the wheel, brunch assembles awesome wheels.
 
 ## Development
 
-Watch coffeescript files and compile them via
+Install dependencies to `node_modules` directory
+
+    cake setup
+
+Install brunch in your local npm repository
+
+    cake install
+
+Watch coffeescript files and continously compile them via
 
     cake watch
 
-and run tests via
+and run test suite via
 
     cake test
 
@@ -51,7 +59,6 @@ Feel free to contact us at Freenode #brunch in the IRC client of your choice.
 ## TODO
 
 * fix bug (dispatch is called multiple times)
-* directly call stylus instead of spawning child process
 * copy css files to build
 * add possibility to use zepto instead of jquery
 

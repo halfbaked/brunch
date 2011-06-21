@@ -9,7 +9,7 @@ fs          = require 'fs'
 _           = require 'underscore'
 
 # The list of all the valid option flags that 'brunch' knows how to handle.
-NOMNOM_CONFIG = [
+NOMNOM_CONFIG_OLD = [
     name  : 'expressPort'
     string: '-ep <port>, --expressPort=<port>'
     help  : 'set the express server port'
@@ -29,58 +29,102 @@ NOMNOM_CONFIG = [
     name  : 'output'
     string: '-o, --output'
     help  : 'set build path'
+  ,
+    name  : 'minify'
+    string: '-m, --minify'
+    help  : 'minify the app.js output via UglifyJS'
 ]
 
-# The help banner which is printed if brunch command-line tool is called with '--help' option.
-BANNER = '''
-  Usage: brunch [command] [options]
+NOMNOM_CONFIG = {
+  version: {
+    string: '-v, --version'
+    help: 'Returns labBuilder version'
+    callback: ->
+      return "version 0.1";            
+  }
+}
 
-  Possible commands are:
-    new [<path>]    create new brunch project
-    build [<path>]  build project
-    watch [<path>]  watch brunch directory and rebuild if something changed
-         '''
 
 options = {}
 argParser = {}
+
+buildClient = (options) ->
+  console.log 'Building the client'
+  brunch.buildClient()
+
+buildServer = (options) ->
+  console.log 'Building the server'
 
 # Run 'brunch' by parsing passed options and determining what action to take.
 # This also includes checking for a config file. Options in commandline arguments
 # overwrite options from the config file. In this case you are able to have
 # reasonable defaults and changed only the options you need to change in this particular case.
 exports.run = ->
-  opts = parseOptions()
-  return usage() if opts.help
-  return version() if opts.version
 
-  # migration information
-  helpers.log "brunch:   #{colors.lblue('Backwards Incompatible Changes since 0.7.0', true)}\n\n
+  exports.buildConfig = {
+    clientBuildPath: 'build/client',
+    clientSrcPath: 'src/client'
+  }
 
-                     please visit http://brunchwithcoffee.com/#migrate-to-0-7-0-plus for more information \n\n"
+  nomnom.command('create-app')
+    .opts({
+      app: {
+        position: 1,
+        help: 'Name of app you wish to create'
+      }
+    })
+    .help('Create a new app')
+    .callback( (options) ->
+      console.log 'Creating new app')
 
-  options = exports.loadDefaultArguments()
-  command = opts[0]
-  configPath = if opts[1]? then path.join(opts[1], 'config.yaml') else 'brunch/config.yaml'
+  nomnom.command('build-server')
+    .help('Build the server')
+    .callback( (options) ->
+      brunch.buildServer())
 
-  # create new brunch app and build it after all files were copied
-  if command is "new"
-    options = exports.loadOptionsFromArguments opts, options
-    brunch.new options, ->
-      options = _.extend(options, exports.loadConfigFile(configPath) )
-      options = exports.loadOptionsFromArguments opts, options
+  nomnom.command('build-client')
+    .help('Build the client')
+    .callback( (options) ->
+      buildClient(options))
 
-  else if command is 'watch' or command is 'build'
-    options = _.extend(options, exports.loadConfigFile(configPath) )
-    options = exports.loadOptionsFromArguments opts, options
+  nomnom.command('watch-server')
+    .help('Watch for changes on the server and rebuild')
+    .callback( (options) ->
+      console.log 'Watching for changes on server')
 
-    if command is "watch"
-      return brunch.watch options
-    else if command is "build"
-      return brunch.build options
+  nomnom.command('watch-client')
+    .help('Watch for changes on client, and rebuild')
+    .callback( (options) ->
+      console.log 'Watching for changes on client')
 
-  else
-    usage()
+  nomnom.command('build')
+    .help('Build client and server')
+    .callback( (options) ->
+      buildClient(options)
+      buildServer(options))
+      
+  nomnom.command('watch') 
+    .help('Watch for changes on client or server and rebuild')
+    .callback( (options) ->
+      console.log 'Watching for changes on client or server and rebuilding')
 
+  nomnom.command('clean-client')
+    .help('Deletes client build directory')
+    .callback( (options) ->
+      brunch.cleanClient(options))
+
+  nomnom.command('clean-server')
+    .help('Deletes server build directory')
+    .callback( (options) ->
+      console.log 'Cleaning server build directory')
+
+  nomnom.command('start-server')
+    .help('Starts Express server')
+    .callback( (options) ->
+      brunch.startServer())
+
+  opts = nomnom.opts(NOMNOM_CONFIG).parseArgs()
+  
 # Load default options
 exports.loadDefaultArguments = ->
   # buildPath is created in loadOptionsFromArguments
@@ -90,6 +134,7 @@ exports.loadDefaultArguments = ->
     expressPort: '8080'
     brunchPath: 'brunch'
     dependencies: []
+    minify: false
   options
 
 # Load options from config file
@@ -107,6 +152,7 @@ exports.loadOptionsFromArguments = (opts, options) ->
   options.projectTemplate = opts.projectTemplate if opts.projectTemplate?
   options.expressPort = opts.expressPort if opts.expressPort?
   options.brunchPath = opts[1] if opts[1]?
+  options.minify = opts.minify if opts.minify?
   if opts.buildPath?
     options.buildPath = opts.buildPath
   else unless options.buildPath?
@@ -127,3 +173,5 @@ usage = ->
 version = ->
   process.stdout.write "brunch version #{brunch.VERSION}\n"
   process.exit 0
+
+
